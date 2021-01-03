@@ -2,6 +2,7 @@ import pygame
 import sys
 import os
 
+
 pygame.init()
 FPS = 50
 WIDTH = 800
@@ -47,6 +48,7 @@ def start_screen():
         clock.tick(FPS)
 
 
+
 tile_images = {}
 player_images = {}
 all_sprites = pygame.sprite.Group()
@@ -54,10 +56,7 @@ tiles_group = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 tile_width = tile_height = 50
 
-class Player(pygame.sprite.Sprite):
-    def __init__(self, player_type, pos_x, pos_y):
-        super().__init__(player_group, all_sprites)
-        self.image = player_images[player_type]
-        self.rect = self.image.get_rect().move(
-            tile_width * pos_x, tile_height * pos_y)
-        self.pos = pos_x, pos_y
+
+
+
+
