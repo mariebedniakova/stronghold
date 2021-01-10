@@ -6,12 +6,12 @@ import os
 
 pygame.init()
 FPS = 50
-WIDTH = 800
+WIDTH = 1000
 HEIGHT = 800
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
-
+tick_count = 0
 
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
@@ -52,8 +52,11 @@ def start_screen():
 
 
 tile_images = {'Barrak': 'barrak.png',
-               'House': 'house.png'}
-player_images = {'free_people': 'free_person.jpg'}
+               'House': 'house.png',
+               'Farm': 'Farm.png'}
+player_images = {'free_people': 'free_person.png',
+                 'farmer': 'farmer.png',
+                 'warriors': 'warrior.png'}
 all_sprites = pygame.sprite.Group()
 player_group = pygame.sprite.Group()
 tile_width = tile_height = 200
@@ -62,6 +65,9 @@ tile_width = tile_height = 200
 def correct_coords(x, y, width, hight):
     return 0 <= x < width and 0 <= y < hight
 
+def convert_coords(x, y):
+    if correct_coords(x, y, WIDTH - 200, HEIGHT):
+        return y // tile_height, x // tile_width
 
 def load_map(filename):
     filename = "data/" + filename
@@ -81,7 +87,7 @@ def load_settings(filename):
 
 village = load_map('village_plan.txt')
 building_group = pygame.sprite.Group()
-resources = {'money': 20,
+resources = {'money': 100000,
              'free_people': [],
              'warriors': [],
              'food': 0,
@@ -89,6 +95,15 @@ resources = {'money': 20,
 clock = pygame.time.Clock()
 GAME_SETTINGS = load_settings('settings.txt')  # табличка
 
+
+class Collector(pygame.sprite.Sprite):
+    def __init__(self, coords):
+        super().__init__(all_sprites)
+        self.x_pos = coords[1] * tile_width + 100 # на поле
+        self.y_pos = coords[0] * tile_height
+        self.image = pygame.transform.scale(load_image('collector.png'),
+                                            (tile_width // 4, tile_height // 4))
+        self.rect = self.image.get_rect().move(self.x_pos, self.y_pos)
 
 
 class Building(pygame.sprite.Sprite):  # общий класс для всех построек
@@ -98,24 +113,31 @@ class Building(pygame.sprite.Sprite):  # общий класс для всех �
         self.x_pos = None  # в матрице
         self.y_pos = None
 
+
+    def get_coords(self):
+        return self.x_pos, self.y_pos
+
     def create(self, x_pos, y_pos):
         if correct_coords(x_pos, y_pos, len(village[0]), len(village)):
-            if village[y_pos][x_pos] == '.':
+            if village[x_pos][y_pos] == '.':
                 if self.can_build():
-                    village[y_pos][x_pos] = self.symbol
+                    village[x_pos][y_pos] = self.symbol
                     self.x_pos, self.y_pos = x_pos, y_pos
 
                     self.image = pygame.transform.scale(load_image(tile_images[self.get_name()]),
                                                         (tile_width, tile_height))
                     self.rect = self.image.get_rect().move(
-                        tile_width * x_pos, tile_height * y_pos)
-                    return True
+                        tile_width * y_pos, tile_height * x_pos)
+                    return 'OK'
+                return 'Недостаточно средств'
+            return 'Невозможно построить здесь'
 
     def can_build(self):  # проверяет, имеются ли ресурсы для постройки
         return True
 
     def get_name(self):
         return
+
 
 
 class Barrack(Building):  # казарма
@@ -127,33 +149,42 @@ class Barrack(Building):  # казарма
     def make_a_warrior(self):  # делает из незанятого героя воина, может вызываться при клике на картинку
         if resources['money'] and resources['free_people']:
             resources['money'] -= 3
-            resources['warriors'].append(resources['free_people'].pop(0))
+            resources['free_people'][0].kill()  # один герой требуется в фермеры
+            del resources['free_people'][0]
+            resources['warriors'].append(Warrior(self.x_pos, self.y_pos))
+            return 'OK'
         return "Недостаточно ресурсов"
 
     def get_name(self):
         return 'Barrak'
 
 
+
 class House(Building):  # жилой дом
     def __init__(self, x_pos, y_pos):
         super().__init__()
         self.symbol = '^'
-        self.time = 10 ** 6
+        self.time = 10 ** 2
         self.money_can_collect = False
         self.create(x_pos, y_pos)
 
     def create(self, x_pos, y_pos):
-        if super().create(x_pos, y_pos):
+        can_create = super().create(x_pos, y_pos)
+        if can_create == 'OK':
             resources['money'] -= 20
             for i in range(5):  # строится мгновенно и заселяется 5 героями
-                resources['free_people'].append(Hero(self.x_pos, self.y_pos, i * 10))
+                resources['free_people'].append(Hero(self.x_pos, self.y_pos))
+            return 'OK'
+        else:
+            return can_create
 
     def can_build(self):
         return resources['money'] >= 20
 
     def money(self):  # когда проходит время time можно собрать деньги (вызывется при каждом повторении игрового цикла)
-        if clock.get_time() % self.time == 0:
+        if tick_count % self.time == 0:
             self.money_can_collect = True
+        return self.money_can_collect
 
     def collect_money(self):  # сбор денег, вызывается нажатием и работает, если заданное время прошло
         if self.money_can_collect:
@@ -163,19 +194,35 @@ class House(Building):  # жилой дом
     def get_name(self):
         return 'House'
 
+class ControlPanel():  # панель управления
+    def __init__(self):
+        self.draw()
+
+    def draw(self):
+        screen.fill((161, 150, 114), pygame.Rect(810, 10, 180, 780))
+
+    def update(self):
+        self.draw()
 
 class Farm(Building):  # ферма
     def __init__(self, x_pos, y_pos):
         super().__init__()
         self.symbol = '*'
-        self.time = 10 ** 9
+        self.time = 10 ** 2
         self.money_can_collect = False
         self.create(x_pos, y_pos)
 
     def create(self, x_pos, y_pos):
-        if super().create(x_pos, y_pos):
+        can_create = super().create(x_pos, y_pos)
+        if can_create == 'OK':
             resources['money'] -= 10
-            resources['farmers'].append(resources['free_people'].pop(0))  # один герой требуется в фермеры
+            resources['free_people'][0].kill()  # один герой требуется в фермеры
+            del resources['free_people'][0]
+            resources['farmers'].append(Farmer(self.x_pos, self.y_pos))
+            return 'OK'
+        else:
+            return can_create
+
 
     def can_build(self):
         return resources['money'] >= 10 and resources['free_people']
@@ -193,16 +240,16 @@ class Farm(Building):  # ферма
             self.money_can_collect = False
 
     def get_name(self):
-        return Farm
+        return 'Farm'
 
 
 class Hero(pygame.sprite.Sprite):
-    def __init__(self, pos_x, pos_y, i=0):
+    def __init__(self, pos_y, pos_x):
         super().__init__(player_group, all_sprites)
         self.image = pygame.transform.scale(load_image(player_images[self.get_name()]),
                                             (tile_width // 2, tile_height // 2))
-        self.rect = self.image.get_rect().move(
-            tile_width * (pos_x + 0.5) - i, tile_height * (pos_y + 0.5))
+        self.rect = self.image.get_rect().move(randrange(tile_width * pos_x + 70, tile_width * pos_x + 150),
+                                               randrange(tile_height * pos_y + 70, tile_height * pos_y + 100))
         self.pos = pos_x, pos_y
         self.alive = 100  # уменьшается при уроне, голоде, востанавливается при питании.
         self.time_hunger = 10 ** 7
@@ -232,8 +279,8 @@ class Hero(pygame.sprite.Sprite):
 
 
 class Warrior(Hero):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, pos_x, pos_y):
+        super().__init__(pos_x, pos_y)
         self.time_hunger = 10 ** 5
 
     def get_name(self):
@@ -246,27 +293,51 @@ class Warrior(Hero):
     def strike(self, other, power):
         other.damaged(power)
 
+class Animated_Warrior(Warrior):
+    pass
 
 class Farmer(Hero):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, pos_x, pos_y):
+        super().__init__(pos_x, pos_y)
         self.time = 10 ** 6
 
     def get_name(self):
         return 'farmer'
 
-fon = pygame.transform.scale(load_image('field.jpg'), (WIDTH, HEIGHT))
-screen.blit(fon, (0, 0))
-Barrack()
-House(0, 0)
+fon_image = pygame.transform.scale(load_image('field.jpg'), (WIDTH, HEIGHT))
+fon = pygame.sprite.Sprite(all_sprites)
+fon.image = fon_image
+fon.rect = fon_image.get_rect().move(0, 0)
+
+
+barrack = Barrack()
+control_panel = ControlPanel()
 print(village)
 running = True
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-    building_group.draw(screen)
-    player_group.draw(screen)
+        elif event.type == pygame.MOUSEBUTTONDOWN and\
+                village[convert_coords(*event.pos)[0]][convert_coords(*event.pos)[1]] == '^':
+            house = list(filter(lambda x: x.get_coords() == convert_coords(*event.pos), building_group))[0]
+            house.collect_money()
+            for sprite in all_sprites:
+                if sprite.__class__.__name__ == 'Collector':
+                    sprite.kill()
+        elif event.type == pygame.MOUSEBUTTONDOWN and convert_coords(*event.pos) == barrack.get_coords():
+            barrack.make_a_warrior()
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            House(*convert_coords(*event.pos))
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
+            Farm(*convert_coords(*event.pos))
+    for house in filter(lambda x: x.get_name() == 'House', building_group):
+        if house.money():
+            Collector(house.get_coords())
+
+    all_sprites.draw(screen)
+    control_panel.update()
     pygame.display.flip()
     clock.tick(FPS)
+    tick_count += 1
 terminate()
