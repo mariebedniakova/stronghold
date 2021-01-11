@@ -16,10 +16,11 @@ def load_map(filename):
     return list(map(lambda x: x.ljust(max_width, '0'), level_map))
 
 
-village = load_map('village_plan.txt')
+village = load_map('village_plan_player.txt')
+village_enemy = load_map('village_plan_enemy.txt')
 building_group = pygame.sprite.Group()
 resources = {'money': 0,
-             'free_people': [],
+             'free_people': 0,
              'warriors': [],
              'food': 0,
              'farmers': []}  # ресурсы игрока для совершения игровых действий
