@@ -46,7 +46,7 @@ while running:
         for j in range(0, size[0] * cel_size, cel_size):
             grass = Grass(i, j)
             grass_sprites.draw(screen)
-    pygame.display.flip()
+            pygame.display.flip()
     running = False
 pygame.quit()
 sys.exit()
