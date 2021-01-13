@@ -13,6 +13,7 @@ HEIGHT = 800
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
 tick_count = 0
+info_click = False
 
 
 def load_image(name, colorkey=None):
@@ -91,6 +92,11 @@ def load_settings(filename):
             settings.append(el)
     return settings[0]
 
+def load_rules(filename):
+    filename = "data/" + filename
+    with open(filename, encoding="utf8") as rules:
+        return rules.readlines()
+
 
 village = load_map('village_plan.txt')
 building_group = pygame.sprite.Group()
@@ -101,7 +107,26 @@ resources = {'money': 100000,
              'farmers': []}  # ресурсы игрока для совершения игровых действий
 clock = pygame.time.Clock()
 GAME_SETTINGS = load_settings('settings.csv')  # табличка
+info = pygame.sprite.Group()
 
+
+class InfoButton(pygame.sprite.Sprite):
+    def __init__(self):
+        super().__init__(info)
+        self.image = pygame.transform.scale(load_image('info.png'),
+                                            (tile_width // 5, tile_height // 5))
+        self.rect = self.image.get_rect().move(940, 740)
+
+    def click(self):
+        screen.fill((61, 82, 20), pygame.Rect(100, 100, 600, 600))
+        self.font = pygame.font.Font(pygame.font.match_font('gabriola'), 30)
+        k = 0
+        for line in load_rules('rules.txt'):
+            text = self.font.render(line.strip('\n'), True, (161, 182, 120))
+            text_x = 110
+            text_y = 110 + 20 * k
+            screen.blit(text, (text_x, text_y))
+            k += 1
 
 class Collector(pygame.sprite.Sprite):
     def __init__(self, coords):
@@ -203,8 +228,7 @@ class House(Building):  # жилой дом
     def get_name(self):
         return 'House'
 
-
-class ControlPanel():  # панель управления
+class VillageControlPanel():  # панель управления
     def __init__(self):
         self.title_font = pygame.font.Font(pygame.font.match_font('goudyoldstyleполужирный'), 30)
         self.text_font = pygame.font.Font(pygame.font.match_font('goudyoldstyle'), 20)
@@ -328,49 +352,57 @@ class Farmer(Hero):
 
 
 
-# village_screen = pygame.Surface(screen.get_size())
-# battlefield_screen = pygame.Surface(screen.get_size())
-# screen.blit(village_screen, (0, 0))
+screen.blit(screen, (0, 0))
 place = 'village'
 fon_image = pygame.transform.scale(load_image('field.jpg'), (WIDTH, HEIGHT))
 fon = pygame.sprite.Sprite(all_sprites)
 fon.image = fon_image
 fon.rect = fon_image.get_rect().move(0, 0)
-print(pygame.font.get_fonts())
 barrack = Barrack()
-control_panel = ControlPanel()
+control_panel = VillageControlPanel()
+InfoButton()
 running = True
 while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN and convert_coords(*event.pos) == barrack.get_coords()\
-                and event.button == 3:
-            barrack.make_a_warrior()
-        elif event.type == pygame.MOUSEBUTTONDOWN and \
-                village[convert_coords(*event.pos)[0]][convert_coords(*event.pos)[1]] != '.' and place == 'village':
-            house = list(filter(lambda x: x.get_coords() == convert_coords(*event.pos), building_group))[0]
-            house.collect_money()
-            for sprite in all_sprites:
-                if sprite.__class__.__name__ == 'Collector':
-                    sprite.kill()
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and place == 'village':
-            House(*convert_coords(*event.pos))
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3 and place == 'village':
-            Farm(*convert_coords(*event.pos))
-        elif battle_begin and event.key == pygame.K_SPACE:
-            # screen.blit(battlefield_screen, (0, 0))
-            place = 'battlefield'
-            # дописать
-    for building in building_group:
-        if building.can_collect():
-            Collector(building.get_coords())
-        if building.__class__.__name__ == 'Farm':
-            building.get_food()
+    try:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and\
+                    980 > event.pos[0] > 940 and 740 < event.pos[1] < 780:
+                info_click = not info_click
+            elif event.type == pygame.MOUSEBUTTONDOWN and convert_coords(*event.pos) == barrack.get_coords()\
+                    and event.button == 3:
+                barrack.make_a_warrior()
+            elif event.type == pygame.MOUSEBUTTONDOWN and \
+                    village[convert_coords(*event.pos)[0]][convert_coords(*event.pos)[1]] != '.' and place == 'village':
+                house = list(filter(lambda x: x.get_coords() == convert_coords(*event.pos), building_group))[0]
+                house.collect_money()
+                for sprite in all_sprites:
+                    if sprite.__class__.__name__ == 'Collector':
+                        sprite.kill()
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and place == 'village':
+                House(*convert_coords(*event.pos))
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3 and place == 'village':
+                Farm(*convert_coords(*event.pos))
+            elif battle_begin and event.key == pygame.K_SPACE:
+                # screen.blit(battlefield_screen, (0, 0))
+                place = 'battlefield'
+                 # дописать
+            for building in building_group:
+                if building.can_collect():
+                    Collector(building.get_coords())
+                if building.__class__.__name__ == 'Farm':
+                    building.get_food()
 
-    all_sprites.draw(screen)
-    control_panel.update()
-    pygame.display.flip()
-    clock.tick(FPS)
-    tick_count += 1
+            all_sprites.draw(screen)
+            control_panel.update()
+            info.draw(screen)
+            if info_click:
+                for button in info:
+                    button.click()
+            pygame.display.flip()
+            clock.tick(FPS)
+            tick_count += 1
+    except:
+        pass
 terminate()
