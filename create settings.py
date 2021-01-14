@@ -7,8 +7,9 @@ data = [{
     'time_of_barrak': 10 ** 4,
     'time_of_house': 10 ** 3,
     'time_of_farm': 10 ** 3 * 5,
-    'time_of_food': 10 ** 2,
-    'food_of_farm': 10
+    'time_of_food': 10 * 10,
+    'food_of_farm': 10,
+    'battle_time': 10
 }]
 
 with open('data/settings.csv', 'w', newline='') as f:
