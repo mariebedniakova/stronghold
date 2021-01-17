@@ -1,4 +1,3 @@
-import pygame
 from random import randrange, choice
 import pygame
 import sys
@@ -39,8 +38,20 @@ def terminate():
 
 
 def start_screen():
-    intro_text = []
-    # созданик экрана, выбор параметров текста и вывод текта
+    with open('data/rules.txt', encoding='utf8') as rules:
+        intro_text = rules.readlines()
+    fon = pygame.transform.scale(load_image('fon.jpg'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))
+    font = pygame.font.Font(pygame.font.match_font('gabriola'), 30)
+    text_coord = 10
+    for line in intro_text[:-1]:
+        string_rendered = font.render(line.strip('\n'), True, pygame.Color('white'))
+        intro_rect = string_rendered.get_rect()
+        text_coord += 5
+        intro_rect.top = text_coord
+        intro_rect.x = 10
+        text_coord += intro_rect.height
+        screen.blit(string_rendered, intro_rect)
 
     while True:
         for event in pygame.event.get():
@@ -103,7 +114,7 @@ def load_rules(filename):
 
 village = load_map('village_plan.txt')
 building_group = pygame.sprite.Group()
-resources = {'money': 100000,
+resources = {'money': 500,
              'free_people': [],
              'warriors': [],
              'food': 0,
@@ -144,6 +155,8 @@ class Collector(pygame.sprite.Sprite):
 
 class Building(pygame.sprite.Sprite):  # общий класс для всех построек
     def __init__(self):
+        if not self.can_build():
+            return
         super().__init__(building_group, village_sprites)
         self.symbol = None  # каким символом представлен в матрице
         self.x_pos = None  # в матрице
@@ -195,7 +208,7 @@ class Barrack(Building):  # казарма
         self.money = int(GAME_SETTINGS['money_of_barrak'])
 
     def make_a_warrior(self):  # делает из незанятого героя воина, может вызываться при клике на картинку
-        if resources['money'] and resources['free_people']:
+        if resources['money'] >= 3 and resources['free_people']:
             resources['money'] -= 3
             resources['free_people'][0].kill()  # один герой требуется в фермеры
             del resources['free_people'][0]
@@ -232,7 +245,8 @@ class House(Building):  # жилой дом
     def get_name(self):
         return 'House'
 
-class ControlPanel():  # панель управления
+
+class ControlPanel:  # панель управления
     def __init__(self):
         self.title_font = pygame.font.Font(pygame.font.match_font('goudyoldstyleполужирный'), 30)
         self.text_font = pygame.font.Font(pygame.font.match_font('goudyoldstyle'), 20)
@@ -269,6 +283,8 @@ class ControlPanel():  # панель управления
             text_y = 60 + 25 * k - text.get_height() // 2
             screen.blit(text, (text_x, text_y))
             k += 1
+
+
 
     def update(self):
         if place == 'village':
@@ -310,49 +326,49 @@ class Farm(Building):  # ферма
 
 class Hero(pygame.sprite.Sprite):
     def __init__(self, pos_y, pos_x, group=village_sprites):
-        super().__init__(village_sprites, group)
+        super().__init__(group)
         if group == village_sprites:
             self.image = pygame.transform.scale(load_image(player_images[self.get_name()]),
                                                 (tile_width // 2, tile_height // 2))
         else:
-           super().__init__(battlefield_sprites)
+            super().__init__(battlefield_sprites)
         self.rect = self.image.get_rect().move(randrange(tile_width * pos_x + 70, tile_width * pos_x + 150),
                                                randrange(tile_height * pos_y + 70, tile_height * pos_y + 100))
 
         self.pos = pos_x, pos_y
         self.alive = 100  # уменьшается при уроне, голоде, востанавливается при питании.
-        self.time_hunger = 10 ** 7
 
     def get_name(self):
         return 'free_people'
 
-    def can_live(self):  # вызывется при каждом повторении игрового цикла
+    def can_live(self, list):  # вызывется при каждом повторении игрового цикла
         if self.alive < 1:
-            self.die()
+            self.die(list)
 
-    def die(self):  # смерть - удаление из всех ресурсов, плюс групп спрайтов
-        del resources[self.get_name()][resources[self.get_name()].index(self)]
+    def die(self, list):  # смерть - удаление из всех ресурсов, плюс групп спрайтов
+        del list[list.index(self)]
         self.kill()
+        print(self.groups())
 
     def eat(self):
-        while self.alive < 100 or resources['food']:
+        while self.alive < 100 and resources['food']:
             resources['food'] -= 1
             self.alive += 1
 
     def get_hunger(self):
         if self.alive < 100:
             self.eat()
-        if clock.get_time() % self.time_hunger == 0:
-            self.alive -= 1
-            self.eat()
 
 
 class Enemey:
     def __init__(self):
-        count = randrange(2, len(resources['warriors']) + 2)
+        self.warriors = []
+        count = randrange(1, len(resources['warriors']) + 1)
         for _ in range(count):
             warrior = Warrior(0, 0, 'animated_enemey.png', enemey_battlefield_sprites)
             warrior.to_battlefield('enemey')
+            self.warriors.append(warrior)
+
 
 class Warrior(Hero):
     def __init__(self, pos_x, pos_y, filename='animated_warrior.png', group=player_battlefield_sprites):
@@ -376,14 +392,16 @@ class Warrior(Hero):
         self.rect = self.image.get_rect().move(randrange(tile_width * pos_x + 70, tile_width * pos_x + 150),
                                                randrange(tile_height * pos_y + 70, tile_height * pos_y + 100))
 
-
     def get_name(self):
         return 'warriors'
 
     def damaged(self, power):
         self.alive -= power
-        self.can_live()
-
+        if self in enemey.warriors:
+            list = enemey.warriors
+        else:
+            list = resources['warriors']
+        self.can_live(list)
 
     def strike(self, other, power):
         other.damaged(power)
@@ -401,27 +419,26 @@ class Warrior(Hero):
         self.cur_frame = (self.cur_frame + 1) % len(self.frames)
         self.image = pygame.transform.scale(self.frames[self.cur_frame], (tile_width // 2, tile_height // 2))
 
-    def go(self, enemey):
-        if pygame.sprite.collide_mask(self, enemey):
-            self.strike(enemey, randrange(3, 10))
-            return enemey.alive < 1
-
-        enemey_pos = enemey.battlefield_pos
+    def go(self, en):
+        enemey_pos = en.battlefield_pos
         if enemey_pos[0] > self.battlefield_pos[0]:
-            cours_x = 10
-        elif enemey_pos[0] < self.battlefield_pos[0]:
-            cours_x = -10
+            cours_x = 5
         else:
-            cours_x = 0
+            cours_x = -5
+
         if enemey_pos[1] > self.battlefield_pos[1]:
-            cours_y = 10
-        elif enemey_pos[1] < self.battlefield_pos[1]:
-            cours_y = -10
+            cours_y = 5
         else:
-            cours_y = 0
+            cours_y = -5
         self.rect = self.rect.move(cours_x, cours_y)
         self.battlefield_pos = self.rect.x, self.rect.y
 
+        if en.mask and self.mask:
+            if pygame.sprite.collide_mask(self, en):
+                self.strike(en, randrange(3, 10))
+                if en.alive < 1:
+                    en.mask = None
+                    return True
 
 
 class Farmer(Hero):
@@ -433,7 +450,10 @@ class Farmer(Hero):
         return 'farmer'
 
 
+start_screen()
+enemey = None
 can_flip = True
+coll = None
 place = 'village'
 fon_image = pygame.transform.scale(load_image('field.jpg'), (WIDTH, HEIGHT))
 fon = pygame.sprite.Sprite(village_sprites, battlefield_sprites)
@@ -441,17 +461,20 @@ fon.image = fon_image
 fon.rect = fon_image.get_rect().move(0, 0)
 barrack = Barrack()
 control_panel = ControlPanel()
-InfoButton()
+button = InfoButton()
 running = True
 while running:
     for event in pygame.event.get():
         key = pygame.key.get_pressed()
         if event.type == pygame.QUIT:
             running = False
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and\
+        elif battle_begin and event.type == pygame.MOUSEBUTTONDOWN and place == 'village':
+            can_flip = True
+            resources['money'] -= 500
+        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and \
                 980 > event.pos[0] > 940 and 740 < event.pos[1] < 780:
             info_click = not info_click
-        elif event.type == pygame.MOUSEBUTTONDOWN and convert_coords(*event.pos) == barrack.get_coords()\
+        elif event.type == pygame.MOUSEBUTTONDOWN and convert_coords(*event.pos) == barrack.get_coords() \
                 and event.button == 3:
             barrack.make_a_warrior()
         elif event.type == pygame.MOUSEBUTTONDOWN and \
@@ -465,39 +488,89 @@ while running:
             House(*convert_coords(*event.pos))
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3 and place == 'village':
             Farm(*convert_coords(*event.pos))
+
+        elif not place == 'village' and key[pygame.K_SPACE]:
+            can_flip = True
+            place = 'village'
+            if enemey:
+                resources['money'] -= 300
+
+            for warrior in player_battlefield_sprites:
+                warrior.from_battlefield()
+            battle_begin = False
         elif battle_begin and key[pygame.K_SPACE]:
             can_flip = True
             place = 'battlefield'
             for warrior in player_battlefield_sprites:
                 warrior.to_battlefield()
-            Enemey()
+            if not enemey:
+                enemey = Enemey()
+            break
 
-    for building in building_group:
-        if building.can_collect():
-            Collector(building.get_coords())
-        if building.__class__.__name__ == 'Farm':
-            building.get_food()
     if place == 'village':
-        village_sprites.draw(screen)
+        for building in building_group:
+            if building.can_collect() and not coll:
+                coll = Collector(building.get_coords())
+            if building.__class__.__name__ == 'Farm':
+                building.get_food()
+        for warrior in player_battlefield_sprites:
+            warrior.get_hunger()
+
+        if len(resources['warriors']) != len(player_battlefield_sprites.sprites()):
+            player_battlefield_sprites = pygame.sprite.Group()
+            player_battlefield_sprites.add(*resources['warriors'])
+        try:
+            village_sprites.draw(screen)
+            player_battlefield_sprites.draw(screen)
+        except:
+            pass
+
         rules = 'rules.txt'
     elif place == 'battlefield':
         battlefield_sprites.draw(screen)
         player_battlefield_sprites.update()
         enemey_battlefield_sprites.update()
-        if resources['warriors']:
+        if resources['warriors'] and enemey.warriors:
+            for warrior in player_battlefield_sprites:
+                if warrior.go(choice(enemey.warriors)):
+                    break
             for warrior in enemey_battlefield_sprites:
                 if warrior.go(choice(resources['warriors'])):
                     break
+        else:
+            if resources['warriors']:
+                button.get_info('win.txt')
+                resources['matches won'] += 1
+                resources['money'] += 500
+                for warrior in player_battlefield_sprites:
+                    warrior.from_battlefield()
+            else:
+                button.get_info('loss.txt')
+            pygame.display.flip()
+            can_flip = False
+            battle_begin = False
+            place = None
+            enemey = None
         rules = 'battlefield_rules.txt'
+
+    if resources['money'] < 0 or (all(map(lambda x: '.' not in x, village))
+                                  and not resources['free_people'] and len(resources['warriors']) < 3):
+        print('Недостаточно ресурсов.')
+        print('Вы проиграли')
+        with open('data/record.txt') as record:
+            if resources['matches won'] > int(record.readlines()[-1]):
+                with open("data/record.txt", 'w') as f:
+                    f.write(str(resources['matches won']))
+                    print('Рекорд побит!')
+        running = False
+        break
     control_panel.update()
     info.draw(screen)
     if info_click:
-        for button in info:
-            button.get_info(rules)
+        button.get_info(rules)
     if place == 'village' and tick_count % int(GAME_SETTINGS['battle_time']) == 0 and len(resources['warriors']) > 2:
         battle_begin = True
-        for button in info:
-            button.get_info('battle_begin.txt')
+        button.get_info('battle_begin.txt')
         pygame.display.flip()
         can_flip = False
     if can_flip:
