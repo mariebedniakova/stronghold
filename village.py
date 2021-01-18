@@ -8,6 +8,8 @@ pygame.init()
 FPS = 10
 WIDTH = 1000
 HEIGHT = 800
+VILLAGE = 'village'
+BATTLEFIELD = 'battlefield'
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 clock = pygame.time.Clock()
@@ -106,6 +108,7 @@ def load_settings(filename):
             settings.append(el)
     return settings[0]
 
+
 def load_rules(filename):
     filename = "data/" + filename
     with open(filename, encoding="utf8") as rules:
@@ -143,6 +146,7 @@ class InfoButton(pygame.sprite.Sprite):
             screen.blit(text, (text_x, text_y))
             k += 1
 
+
 class Collector(pygame.sprite.Sprite):
     def __init__(self, coords):
         super().__init__(village_sprites)
@@ -151,6 +155,61 @@ class Collector(pygame.sprite.Sprite):
         self.image = pygame.transform.scale(load_image('collector.png'),
                                             (tile_width // 4, tile_height // 4))
         self.rect = self.image.get_rect().move(self.x_pos, self.y_pos)
+
+
+class ControlPanel:  # панель управления
+    def __init__(self):
+        self.title_font = pygame.font.Font(pygame.font.match_font('goudyoldstyleполужирный'), 30)
+        self.text_font = pygame.font.Font(pygame.font.match_font('goudyoldstyle'), 20)
+        self.village_draw()
+
+    def village_draw(self):
+        screen.fill((161, 150, 114), pygame.Rect(810, 10, 180, 780))
+        text = self.title_font.render("resources", True, (61, 82, 20))
+        text_x = 900 - text.get_width() // 2
+        text_y = 30 - text.get_height() // 2
+        screen.blit(text, (text_x, text_y))
+        k = 0
+        for resource in resources:
+            if not str(resources[resource]).isdigit():
+                value = len(resources[resource])
+            else:
+                value = resources[resource]
+            text = self.text_font.render(f'{resource}:  {value}', True, (61, 82, 20))
+            text_x = 900 - text.get_width() // 2
+            text_y = 60 + 25 * k - text.get_height() // 2
+            screen.blit(text, (text_x, text_y))
+            k += 1
+
+    def battlefield_draw(self):
+        screen.fill((161, 150, 114), pygame.Rect(810, 10, 180, 780))
+        text = self.title_font.render("warriors", True, (61, 82, 20))
+        text_x = 900 - text.get_width() // 2
+        text_y = 30 - text.get_height() // 2
+        screen.blit(text, (text_x, text_y))
+        k = 0
+        for warrior in player_battlefield_sprites:
+            text = self.text_font.render(f'HP:  {warrior.alive}', True, (61, 82, 20))
+            text_x = 900 - text.get_width() // 2
+            text_y = 60 + 25 * k - text.get_height() // 2
+            screen.blit(text, (text_x, text_y))
+            k += 1
+
+    def update(self):
+        if place == 'village':
+            self.village_draw()
+        elif place == 'battlefield':
+            self.battlefield_draw()
+
+
+class Enemey:
+    def __init__(self):
+        self.warriors = []
+        count = randrange(1, len(resources['warriors']) + 1)
+        for _ in range(count):
+            warrior = Warrior(0, 0, 'animated_enemey.png', enemey_battlefield_sprites)
+            warrior.to_battlefield('enemey')
+            self.warriors.append(warrior)
 
 
 class Building(pygame.sprite.Sprite):  # общий класс для всех построек
@@ -246,53 +305,6 @@ class House(Building):  # жилой дом
         return 'House'
 
 
-class ControlPanel:  # панель управления
-    def __init__(self):
-        self.title_font = pygame.font.Font(pygame.font.match_font('goudyoldstyleполужирный'), 30)
-        self.text_font = pygame.font.Font(pygame.font.match_font('goudyoldstyle'), 20)
-        self.village_draw()
-
-    def village_draw(self):
-        screen.fill((161, 150, 114), pygame.Rect(810, 10, 180, 780))
-        text = self.title_font.render("resources", True, (61, 82, 20))
-        text_x = 900 - text.get_width() // 2
-        text_y = 30 - text.get_height() // 2
-        screen.blit(text, (text_x, text_y))
-        k = 0
-        for resource in resources:
-            if not str(resources[resource]).isdigit():
-                value = len(resources[resource])
-            else:
-                value = resources[resource]
-            text = self.text_font.render(f'{resource}:  {value}', True, (61, 82, 20))
-            text_x = 900 - text.get_width() // 2
-            text_y = 60 + 25 * k - text.get_height() // 2
-            screen.blit(text, (text_x, text_y))
-            k += 1
-
-    def battlefield_draw(self):
-        screen.fill((161, 150, 114), pygame.Rect(810, 10, 180, 780))
-        text = self.title_font.render("warriors", True, (61, 82, 20))
-        text_x = 900 - text.get_width() // 2
-        text_y = 30 - text.get_height() // 2
-        screen.blit(text, (text_x, text_y))
-        k = 0
-        for warrior in player_battlefield_sprites:
-            text = self.text_font.render(f'HP:  {warrior.alive}', True, (61, 82, 20))
-            text_x = 900 - text.get_width() // 2
-            text_y = 60 + 25 * k - text.get_height() // 2
-            screen.blit(text, (text_x, text_y))
-            k += 1
-
-
-
-    def update(self):
-        if place == 'village':
-            self.village_draw()
-        elif place == 'battlefield':
-            self.battlefield_draw()
-
-
 class Farm(Building):  # ферма
     def __init__(self, x_pos, y_pos):
         super().__init__()
@@ -357,16 +369,6 @@ class Hero(pygame.sprite.Sprite):
     def get_hunger(self):
         if self.alive < 100:
             self.eat()
-
-
-class Enemey:
-    def __init__(self):
-        self.warriors = []
-        count = randrange(1, len(resources['warriors']) + 1)
-        for _ in range(count):
-            warrior = Warrior(0, 0, 'animated_enemey.png', enemey_battlefield_sprites)
-            warrior.to_battlefield('enemey')
-            self.warriors.append(warrior)
 
 
 class Warrior(Hero):
@@ -453,7 +455,7 @@ start_screen()
 enemey = None
 can_flip = True
 coll = None
-place = 'village'
+place = VILLAGE
 fon_image = pygame.transform.scale(load_image('field.jpg'), (WIDTH, HEIGHT))
 fon = pygame.sprite.Sprite(village_sprites, battlefield_sprites)
 fon.image = fon_image
@@ -467,7 +469,7 @@ while running:
         key = pygame.key.get_pressed()
         if event.type == pygame.QUIT:
             running = False
-        elif battle_begin and event.type == pygame.MOUSEBUTTONDOWN and place == 'village':
+        elif battle_begin and event.type == pygame.MOUSEBUTTONDOWN and place == VILLAGE:
             can_flip = True
             resources['money'] -= 500
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and \
@@ -477,21 +479,21 @@ while running:
                 and event.button == 3:
             barrack.make_a_warrior()
         elif event.type == pygame.MOUSEBUTTONDOWN and convert_coords(*event.pos):
-                if village[convert_coords(*event.pos)[0]][convert_coords(*event.pos)[1]] != '.' and place == 'village':
-                    house = list(filter(lambda x: x.get_coords() == convert_coords(*event.pos), building_group))[0]
-                    house.collect_money()
-                    coll = None
-                    for sprite in village_sprites:
-                        if sprite.__class__.__name__ == 'Collector':
-                            sprite.kill()
-                elif event.button == 1 and place == 'village':
-                    House(*convert_coords(*event.pos))
-                elif event.button == 3 and place == 'village':
-                    Farm(*convert_coords(*event.pos))
+            if village[convert_coords(*event.pos)[0]][convert_coords(*event.pos)[1]] != '.' and place == VILLAGE:
+                house = list(filter(lambda x: x.get_coords() == convert_coords(*event.pos), building_group))[0]
+                house.collect_money()
+                coll = None
+                for sprite in village_sprites:
+                    if sprite.__class__.__name__ == 'Collector':
+                        sprite.kill()
+            elif event.button == 1 and place == VILLAGE:
+                House(*convert_coords(*event.pos))
+            elif event.button == 3 and place == VILLAGE:
+                Farm(*convert_coords(*event.pos))
 
-        elif not place == 'village' and key[pygame.K_SPACE]:
+        elif not place == VILLAGE and key[pygame.K_SPACE]:
             can_flip = True
-            place = 'village'
+            place = VILLAGE
             if enemey:
                 resources['money'] -= 300
 
@@ -500,14 +502,14 @@ while running:
             battle_begin = False
         elif battle_begin and key[pygame.K_SPACE]:
             can_flip = True
-            place = 'battlefield'
+            place = BATTLEFIELD
             for warrior in player_battlefield_sprites:
                 warrior.to_battlefield()
             if not enemey:
                 enemey = Enemey()
             break
 
-    if place == 'village':
+    if place == VILLAGE:
         for building in building_group:
             if building.can_collect():
                 coll = Collector(building.get_coords())
@@ -526,7 +528,7 @@ while running:
             pass
 
         rules = 'rules.txt'
-    elif place == 'battlefield':
+    elif place == BATTLEFIELD:
         battlefield_sprites.draw(screen)
         player_battlefield_sprites.update()
         enemey_battlefield_sprites.update()
@@ -568,7 +570,7 @@ while running:
     info.draw(screen)
     if info_click:
         button.get_info(rules)
-    if place == 'village' and tick_count % int(GAME_SETTINGS['battle_time']) == 0 and len(resources['warriors']) > 2:
+    if place == VILLAGE and tick_count % int(GAME_SETTINGS['battle_time']) == 0 and len(resources['warriors']) > 2:
         battle_begin = True
         button.get_info('battle_begin.txt')
         pygame.display.flip()
