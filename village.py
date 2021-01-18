@@ -348,7 +348,6 @@ class Hero(pygame.sprite.Sprite):
     def die(self, list):  # смерть - удаление из всех ресурсов, плюс групп спрайтов
         del list[list.index(self)]
         self.kill()
-        print(self.groups())
 
     def eat(self):
         while self.alive < 100 and resources['food']:
@@ -477,17 +476,18 @@ while running:
         elif event.type == pygame.MOUSEBUTTONDOWN and convert_coords(*event.pos) == barrack.get_coords() \
                 and event.button == 3:
             barrack.make_a_warrior()
-        elif event.type == pygame.MOUSEBUTTONDOWN and \
-                village[convert_coords(*event.pos)[0]][convert_coords(*event.pos)[1]] != '.' and place == 'village':
-            house = list(filter(lambda x: x.get_coords() == convert_coords(*event.pos), building_group))[0]
-            house.collect_money()
-            for sprite in village_sprites:
-                if sprite.__class__.__name__ == 'Collector':
-                    sprite.kill()
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and place == 'village':
-            House(*convert_coords(*event.pos))
-        elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3 and place == 'village':
-            Farm(*convert_coords(*event.pos))
+        elif event.type == pygame.MOUSEBUTTONDOWN and convert_coords(*event.pos):
+                if village[convert_coords(*event.pos)[0]][convert_coords(*event.pos)[1]] != '.' and place == 'village':
+                    house = list(filter(lambda x: x.get_coords() == convert_coords(*event.pos), building_group))[0]
+                    house.collect_money()
+                    coll = None
+                    for sprite in village_sprites:
+                        if sprite.__class__.__name__ == 'Collector':
+                            sprite.kill()
+                elif event.button == 1 and place == 'village':
+                    House(*convert_coords(*event.pos))
+                elif event.button == 3 and place == 'village':
+                    Farm(*convert_coords(*event.pos))
 
         elif not place == 'village' and key[pygame.K_SPACE]:
             can_flip = True
@@ -509,7 +509,7 @@ while running:
 
     if place == 'village':
         for building in building_group:
-            if building.can_collect() and not coll:
+            if building.can_collect():
                 coll = Collector(building.get_coords())
             if building.__class__.__name__ == 'Farm':
                 building.get_food()
