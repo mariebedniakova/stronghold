@@ -117,7 +117,7 @@ def load_rules(filename):
 
 village = load_map('village_plan.txt')
 building_group = pygame.sprite.Group()
-resources = {'money': 100,
+resources = {'money': 0,
              'free_people': [],
              'warriors': [],
              'food': 0,
