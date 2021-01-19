@@ -7,7 +7,7 @@ import csv
 pygame.init()
 FPS = 10
 WIDTH = 1000
-HEIGHT = 800
+HEIGHT = 600
 VILLAGE = 'village'
 BATTLEFIELD = 'battlefield'
 
@@ -44,12 +44,13 @@ def start_screen():
         intro_text = rules.readlines()
     fon = pygame.transform.scale(load_image('fon.jpg'), (WIDTH, HEIGHT))
     screen.blit(fon, (0, 0))
-    font = pygame.font.Font(pygame.font.match_font('gabriola'), 30)
-    text_coord = 10
+
+    font = pygame.font.Font(None, 20)
+    text_coord = 270
     for line in intro_text[:-1]:
         string_rendered = font.render(line.strip('\n'), True, pygame.Color('white'))
         intro_rect = string_rendered.get_rect()
-        text_coord += 5
+        text_coord += 2
         intro_rect.top = text_coord
         intro_rect.x = 10
         text_coord += intro_rect.height
@@ -73,11 +74,11 @@ player_images = {'free_people': 'free_person.png',
                  'farmer': 'farmer.png',
                  'warriors': 'warrior.png'}
 village_sprites = pygame.sprite.Group()
-player_group = pygame.sprite.Group()
 player_battlefield_sprites = pygame.sprite.Group()
 enemey_battlefield_sprites = pygame.sprite.Group()
 battlefield_sprites = pygame.sprite.Group()
-tile_width = tile_height = 200
+tile_width = 200
+tile_height = 150
 battle_begin = False
 
 
@@ -133,16 +134,16 @@ class InfoButton(pygame.sprite.Sprite):
         super().__init__(info)
         self.image = pygame.transform.scale(load_image('info.png'),
                                             (tile_width // 5, tile_height // 5))
-        self.rect = self.image.get_rect().move(940, 740)
+        self.rect = self.image.get_rect().move(940, 540)
 
     def get_info(self, filename):
-        screen.fill((61, 82, 20), pygame.Rect(100, 100, 600, 600))
-        self.font = pygame.font.Font(pygame.font.match_font('gabriola'), 30)
+        screen.fill((61, 82, 20), pygame.Rect(100, 100, 600, 400))
+        self.font = pygame.font.Font(pygame.font.match_font('gabriola'), 20)
         k = 0
         for line in load_rules(filename):
             text = self.font.render(line.strip('\n'), True, (161, 182, 120))
             text_x = 110
-            text_y = 110 + 20 * k
+            text_y = 110 + 15 * k
             screen.blit(text, (text_x, text_y))
             k += 1
 
@@ -164,7 +165,7 @@ class ControlPanel:  # панель управления
         self.village_draw()
 
     def village_draw(self):
-        screen.fill((161, 150, 114), pygame.Rect(810, 10, 180, 780))
+        screen.fill((161, 150, 114), pygame.Rect(810, 10, 180, 580))
         text = self.title_font.render("resources", True, (61, 82, 20))
         text_x = 900 - text.get_width() // 2
         text_y = 30 - text.get_height() // 2
@@ -182,7 +183,7 @@ class ControlPanel:  # панель управления
             k += 1
 
     def battlefield_draw(self):
-        screen.fill((161, 150, 114), pygame.Rect(810, 10, 180, 780))
+        screen.fill((161, 150, 114), pygame.Rect(810, 10, 180, 580))
         text = self.title_font.render("warriors", True, (61, 82, 20))
         text_x = 900 - text.get_width() // 2
         text_y = 30 - text.get_height() // 2
@@ -473,7 +474,7 @@ while running:
             can_flip = True
             resources['money'] -= 500
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and \
-                980 > event.pos[0] > 940 and 740 < event.pos[1] < 780:
+                980 > event.pos[0] > 940 and 540 < event.pos[1] < 580:
             info_click = not info_click
         elif event.type == pygame.MOUSEBUTTONDOWN and convert_coords(*event.pos) == barrack.get_coords() \
                 and event.button == 3:
